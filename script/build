@@ -117,8 +117,10 @@ require_command bundle
 log "installing upstream omnibus dependencies"
 (
   cd "$checkout_dir/omnibus"
+  local_platform="$(ruby -e 'require "rubygems"; print Gem::Platform.local.to_s')"
   bundle config set --local path "$work_root/upstream-gems"
   bundle config set --local without "test"
+  bundle lock --add-platform "$local_platform"
   bundle config set --local frozen "true"
   bundle install
   bundle exec omnibus build chef-server
