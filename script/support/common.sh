@@ -75,6 +75,25 @@ build_iteration ${iteration}
 EOF
 }
 
+render_omnibus_config() {
+  local repository_path="$1"
+  local config_path="$repository_path/omnibus/omnibus.chef-arm.rb"
+
+  cat > "$config_path" <<'EOF'
+# frozen_string_literal: true
+
+upstream_config = File.expand_path("omnibus.rb", __dir__)
+instance_eval(IO.read(upstream_config), upstream_config)
+
+base_dir File.expand_path("local", __dir__)
+use_git_caching false
+use_internal_sources false
+append_timestamp false
+EOF
+
+  printf '%s\n' "$config_path"
+}
+
 copy_package_artifact() {
   local repository_path="$1"
   local artifact_dir="$2"
