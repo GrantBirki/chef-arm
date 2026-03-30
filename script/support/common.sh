@@ -72,7 +72,6 @@ upstream_override = File.expand_path("omnibus_overrides.chef-arm.upstream.rb", _
 instance_eval(IO.read(upstream_override), upstream_override) if File.exist?(upstream_override)
 
 build_iteration ${iteration}
-append_timestamp false
 EOF
 }
 
