@@ -118,6 +118,8 @@ log "installing upstream omnibus dependencies"
 (
   cd "$checkout_dir/omnibus"
   bundle config set --local path "$work_root/upstream-gems"
+  bundle config set --local without "test"
+  bundle config set --local frozen "true"
   bundle install
   bundle exec omnibus build chef-server
 )
