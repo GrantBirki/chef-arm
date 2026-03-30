@@ -54,3 +54,24 @@ new file mode 100644
 +  mkdir "#{target_path}"
 +  sync "#{project_dir}/", "#{target_path}"
 +end
+diff --git a/omnibus/config/software/libuuid.rb b/omnibus/config/software/libuuid.rb
+--- a/omnibus/config/software/libuuid.rb
++++ b/omnibus/config/software/libuuid.rb
+@@ -20,6 +20,8 @@ default_version "2.21"
+ license "LGPL-2.1"
+ license_file "COPYING"
+ skip_transitive_dependency_licensing true
++
++dependency "config_guess"
+ 
+ source url: "https://www.kernel.org/pub/linux/utils/util-linux/v#{version}/util-linux-#{version}.tar.gz"
+ # We use the version in util-linux, and only build the libuuid subdirectory
+@@ -42,6 +44,8 @@ relative_path "util-linux-#{version}"
+ build do
+   env = with_standard_compiler_flags(with_embedded_path)
+ 
++  update_config_guess(target: "config")
++
+   command "./configure --prefix=#{install_dir}/embedded", env: env
+ 
+   make "-j #{workers}", env: env, cwd: "#{project_dir}/libuuid"
