@@ -75,3 +75,22 @@ diff --git a/omnibus/config/software/libuuid.rb b/omnibus/config/software/libuui
    command "./configure --prefix=#{install_dir}/embedded", env: env
  
    make "-j #{workers}", env: env, cwd: "#{project_dir}/libuuid"
+diff --git a/omnibus/config/software/openresty.rb b/omnibus/config/software/openresty.rb
+new file mode 100644
+--- /dev/null
++++ b/omnibus/config/software/openresty.rb
+@@ -0,0 +1,12 @@
++#
++# Load the upstream omnibus-software definition and apply the arm64-specific
++# health-check whitelist in a local override instead of forking the full file.
++#
++
++require "rbconfig"
++
++upstream_definition = File.join(
++  Gem.loaded_specs.fetch("omnibus-software").full_gem_path,
++  "config/software/openresty.rb"
++)
++instance_eval(IO.read(upstream_definition), upstream_definition)
++
++whitelist_file %r{/lib/aarch64-linux-gnu/libpcre2-8\.so\.0$} if RbConfig::CONFIG["host_cpu"] == "aarch64"
