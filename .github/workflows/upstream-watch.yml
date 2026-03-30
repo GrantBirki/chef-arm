@@ -1,6 +1,7 @@
+---
 name: Upstream Watch
 
-on:
+"on":
   schedule:
     - cron: "0 14 * * 1"
   workflow_dispatch:
@@ -31,14 +32,28 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           current_ref="$(script/metadata default-ref)"
-          latest_ref="$(git ls-remote --tags --refs https://github.com/chef/chef-server.git '*' | awk '{print $2}' | sed 's#refs/tags/##' | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1)"
+          upstream_repo="https://github.com/chef/chef-server.git"
+          latest_ref="$(
+            git ls-remote --tags --refs "$upstream_repo" '*' |
+              awk '{print $2}' |
+              sed 's#refs/tags/##' |
+              grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' |
+              sort -V |
+              tail -n 1
+          )"
 
           if [ -z "$latest_ref" ] || [ "$latest_ref" = "$current_ref" ]; then
             exit 0
           fi
 
           title="Upstream Chef Server ${latest_ref} is available"
-          issue_number="$(gh issue list --state open --search "$title in:title" --json number --jq '.[0].number')"
+          issue_number="$(
+            gh issue list \
+              --state open \
+              --search "$title in:title" \
+              --json number \
+              --jq '.[0].number'
+          )"
 
           body=$(cat <<EOF
           A newer upstream Chef Server ref is available.

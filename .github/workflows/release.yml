@@ -1,6 +1,7 @@
+---
 name: Release Arm Build
 
-on:
+"on":
   workflow_dispatch:
     inputs:
       upstream_ref:
@@ -79,7 +80,9 @@ jobs:
         id: build
         run: |
           if [ -n "${{ inputs.upstream_ref }}" ]; then
-            script/build "${{ inputs.upstream_ref }}" --iteration "${{ inputs.arm_iteration }}"
+            script/build \
+              "${{ inputs.upstream_ref }}" \
+              --iteration "${{ inputs.arm_iteration }}"
           else
             script/build --iteration "${{ inputs.arm_iteration }}"
           fi
@@ -109,13 +112,21 @@ jobs:
       - name: publish release assets
         if: ${{ inputs.publish }}
         env:
-          CHEF_ARM_SBOM_PATH: ${{ steps.build.outputs.artifact_dir }}/sbom.spdx.json
+          CHEF_ARM_SBOM_PATH: >-
+            ${{ steps.build.outputs.artifact_dir }}/sbom.spdx.json
           GH_TOKEN: ${{ github.token }}
         run: |
           if [ -n "${{ inputs.upstream_ref }}" ]; then
-            script/release "${{ inputs.upstream_ref }}" --iteration "${{ inputs.arm_iteration }}" --artifact "${{ steps.build.outputs.package_path }}" --publish
+            script/release \
+              "${{ inputs.upstream_ref }}" \
+              --iteration "${{ inputs.arm_iteration }}" \
+              --artifact "${{ steps.build.outputs.package_path }}" \
+              --publish
           else
-            script/release --iteration "${{ inputs.arm_iteration }}" --artifact "${{ steps.build.outputs.package_path }}" --publish
+            script/release \
+              --iteration "${{ inputs.arm_iteration }}" \
+              --artifact "${{ steps.build.outputs.package_path }}" \
+              --publish
           fi
 
   sign:
@@ -161,6 +172,10 @@ jobs:
 
           find "$ARTIFACT_PATH" -type f | while read -r file; do
             echo "Verifying file: $file"
-            echo "Executing command: gh attestation verify \"$file\" --repo ${OWNER}/${REPO} --signer-workflow ${OWNER}/${REPO}/.github/workflows/release.yml"
-            gh attestation verify "$file" --repo ${OWNER}/${REPO} --signer-workflow ${OWNER}/${REPO}/.github/workflows/release.yml
+            workflow_ref="${OWNER}/${REPO}/.github/workflows/release.yml"
+            echo "Executing command: gh attestation verify \"$file\" \
+              --repo ${OWNER}/${REPO} --signer-workflow ${workflow_ref}"
+            gh attestation verify "$file" \
+              --repo "${OWNER}/${REPO}" \
+              --signer-workflow "$workflow_ref"
           done
