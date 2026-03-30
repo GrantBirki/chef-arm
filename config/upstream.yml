@@ -1,0 +1,4 @@
+---
+repository: https://github.com/chef/chef-server.git
+default_ref: 15.10.93
+release_asset_prefix: chef-server-core

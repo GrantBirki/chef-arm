@@ -1,0 +1,61 @@
+name: Upstream Watch
+
+on:
+  schedule:
+    - cron: "0 14 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: checkout
+        uses: actions/checkout@v6
+
+      - name: setup ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: .ruby-version
+          bundler-cache: false
+
+      - name: bootstrap
+        run: script/bootstrap
+
+      - name: check upstream tags
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          current_ref="$(script/metadata default-ref)"
+          latest_ref="$(git ls-remote --tags --refs https://github.com/chef/chef-server.git '*' | awk '{print $2}' | sed 's#refs/tags/##' | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1)"
+
+          if [ -z "$latest_ref" ] || [ "$latest_ref" = "$current_ref" ]; then
+            exit 0
+          fi
+
+          title="Upstream Chef Server ${latest_ref} is available"
+          issue_number="$(gh issue list --state open --search "$title in:title" --json number --jq '.[0].number')"
+
+          body=$(cat <<EOF
+          A newer upstream Chef Server ref is available.
+
+          - Current default ref: \`${current_ref}\`
+          - Latest upstream ref: \`${latest_ref}\`
+
+          Next step:
+
+          \`\`\`bash
+          script/update-upstream ${latest_ref}
+          \`\`\`
+          EOF
+          )
+
+          if [ -n "$issue_number" ] && [ "$issue_number" != "null" ]; then
+            gh issue comment "$issue_number" --body "$body"
+          else
+            gh issue create --title "$title" --body "$body"
+          fi

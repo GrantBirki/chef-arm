@@ -1,0 +1,17 @@
+#! /usr/bin/env bash
+
+set -euo pipefail
+
+# shellcheck source=script/env
+source script/env "$@"
+# shellcheck source=script/support/common.sh
+source script/support/common.sh
+
+upstream_ref="${1:-}"
+
+[ -n "$upstream_ref" ] || die "usage: script/update-upstream <tag>"
+
+script/metadata set-default-ref "$upstream_ref"
+script/metadata ensure-ref "$upstream_ref"
+
+log "updated default upstream ref to $upstream_ref"

@@ -1,0 +1,15 @@
+#! /usr/bin/env bash
+
+set -e
+
+# shellcheck source=script/env
+source script/env "$@"
+
+if [ "${BUNDLE_WITHOUT:-}" == "" ]; then
+  echo -e "${BLUE}Installing Gems for ${PURPLE}development${BLUE}...${OFF}"
+else
+  echo -e "${BLUE}Installing Gems for ${GREEN}production${BLUE}...${OFF}"
+fi
+
+bundle install --local
+bundle binstubs --all

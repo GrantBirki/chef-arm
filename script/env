@@ -1,0 +1,67 @@
+#! /usr/bin/env bash
+
+set -e
+
+export OFF='\033[0m'
+export RED='\033[0;31m'
+export GREEN='\033[0;32m'
+export BLUE='\033[0;34m'
+export PURPLE='\033[0;35m'
+
+: "${RUBY_ENV:=development}"
+
+export RUBY_ENV
+
+if [[ " $* " =~ " --production " ]]; then
+  export RUBY_ENV=production
+  export BUNDLE_WITHOUT="development"
+fi
+
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"
+export DIR
+
+REPO_NAME=$(basename "$DIR")
+export REPO_NAME
+
+ARTIFACT_DIR="$DIR/pkg"
+export ARTIFACT_DIR
+
+WORK_DIR="$DIR/tmp"
+export WORK_DIR
+
+[ -z "${RBENV_VERSION:-}" ] && RBENV_VERSION=$(cat "$DIR/.ruby-version")
+export RBENV_VERSION
+
+if command -v rbenv >/dev/null 2>&1; then
+  export RBENV_ROOT="${RBENV_ROOT:-$(rbenv root)}"
+  export PATH="$RBENV_ROOT/bin:$RBENV_ROOT/shims:$PATH"
+  eval "$(rbenv init - bash)"
+fi
+
+export BUNDLE_APP_CONFIG="$DIR/.bundle"
+export BUNDLE_USER_HOME="$DIR/.bundle/user"
+
+if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+    PLATFORM="linux"
+    VERSION=$(grep '^VERSION_CODENAME=' /etc/os-release | cut -d '=' -f2 || echo "unknown")
+elif [[ "$OSTYPE" == "darwin"* ]]; then
+    PLATFORM="macos"
+    VERSION=$(sw_vers -productVersion || echo "unknown")
+else
+    PLATFORM="unknown"
+    VERSION="unknown"
+fi
+
+ARCH=$(uname -m || echo "unknown")
+
+export PLATFORM
+export VERSION
+export ARCH
+
+shopt -s nocasematch
+if [[ "$RUBY_ENV" == "production" ]]; then
+  export BUNDLE_WITHOUT="development"
+fi
+shopt -u nocasematch
+
+mkdir -p "$DIR/vendor/cache" "$DIR/vendor/gems" "$DIR/tmp" "$DIR/pkg"

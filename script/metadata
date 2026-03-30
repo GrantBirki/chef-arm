@@ -1,0 +1,57 @@
+#! /usr/bin/env ruby
+# frozen_string_literal: true
+
+$LOAD_PATH.unshift(File.expand_path("../lib", __dir__))
+
+require "yaml"
+require "chef_arm"
+
+upstream_path = File.expand_path("../config/upstream.yml", __dir__)
+patch_manifest_path = File.expand_path("../config/patches.yml", __dir__)
+
+command = ARGV.shift
+
+def usage
+  warn "usage: script/metadata <command> [args]"
+  exit 1
+end
+
+def upstream_config(path)
+  YAML.safe_load_file(path, aliases: false) || {}
+end
+
+case command
+when "default-ref"
+  puts upstream_config(upstream_path).fetch("default_ref")
+when "release-asset-prefix"
+  puts upstream_config(upstream_path).fetch("release_asset_prefix")
+when "repository"
+  puts upstream_config(upstream_path).fetch("repository")
+when "release-tag"
+  version = ARGV.fetch(0)
+  iteration = ARGV.fetch(1)
+  puts ChefArm::ReleaseMetadata.new(version: version, iteration: iteration).release_tag
+when "package-filename"
+  version = ARGV.fetch(0)
+  iteration = ARGV.fetch(1)
+  prefix = upstream_config(upstream_path).fetch("release_asset_prefix", ChefArm::ReleaseMetadata::DEFAULT_PREFIX)
+  puts ChefArm::ReleaseMetadata.new(version: version, iteration: iteration, prefix: prefix).package_filename
+when "resolve-patches"
+  ref = ARGV.fetch(0)
+  version = ARGV.fetch(1)
+  puts ChefArm::PatchManifest.load(patch_manifest_path).patches_for(ref: ref, version: version)
+when "set-default-ref"
+  ref = ARGV.fetch(0)
+  config = upstream_config(upstream_path)
+  config["default_ref"] = ref
+  File.write(upstream_path, YAML.dump(config))
+when "ensure-ref"
+  ref = ARGV.fetch(0)
+  config = YAML.safe_load_file(patch_manifest_path, aliases: false) || {}
+  config["patches"] ||= {}
+  config["patches"]["refs"] ||= {}
+  config["patches"]["refs"][ref] ||= []
+  File.write(patch_manifest_path, YAML.dump(config))
+else
+  usage
+end
