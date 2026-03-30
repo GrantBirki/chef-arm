@@ -38,3 +38,12 @@ For a native package build, use an Ubuntu Server 24.04 `arm64` machine or the `u
   Clones upstream, resolves patch metadata, and renders overrides without invoking Omnibus.
 
 Build artifacts are written to `pkg/<release_tag>/`.
+
+## Runtime artifact verification
+
+Before Omnibus runs on Linux, `script/build` stages the ARM runtime payloads from official upstream sources and verifies them:
+
+- OpenSearch `1.3.20` tarball from `artifacts.opensearch.org`, verified with the published `opensearch.pgp` key and `.sig` signature.
+- Eclipse Temurin `17.0.9+9` JRE tarball from the Adoptium GitHub release, verified with the published `.sha256.txt` sidecar.
+
+The verified tarballs are unpacked into the build workspace and Omnibus consumes those extracted source trees instead of fetching x64-only upstream defaults.

@@ -37,6 +37,7 @@ jobs:
             dpkg-dev \
             fakeroot \
             git \
+            gnupg \
             libffi-dev \
             liblzma-dev \
             libreadline-dev \

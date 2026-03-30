@@ -48,5 +48,6 @@ script/release 15.10.93 --iteration 1
 - Native package builds run on `ubuntu-24.04-arm` GitHub-hosted runners.
 - Local macOS use is expected for linting, tests, manifest updates, and build dry-runs.
 - Full package builds and smoke tests are Linux-only because Omnibus builds for the platform it runs on.
+- The ARM runtime inputs are fetched from official upstream sources and verified during the build: OpenSearch by GPG signature and Temurin by upstream SHA256 manifest.
 
 See [docs/build.md](docs/build.md), [docs/release.md](docs/release.md), and [docs/patches.md](docs/patches.md) for the maintainer workflow.

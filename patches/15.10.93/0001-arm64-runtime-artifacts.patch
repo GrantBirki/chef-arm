@@ -11,7 +11,7 @@ index eef162f4e..af85660df 100644
 -                  sha256: "e2d728da0b108f7a2b5417b4e511f22ff6e36ba02012ac2f79fb71d5f7e23580"
 -internal_source url: "#{ENV["ARTIFACTORY_REPO_URL"]}/opensearch/#{name}-#{version}.tuxcare.1.0.2-linux-x64.tar.gz",
 -                authorization: "X-JFrog-Art-Api:#{ENV["ARTIFACTORY_TOKEN"]}"
-+  source url: "https://artifacts.opensearch.org/releases/bundle/opensearch/#{version}/opensearch-#{version}-linux-arm64.tar.gz"
++  source path: ENV.fetch("CHEF_ARM_OPENSEARCH_SOURCE_PATH")
  end
  
  target_path = "#{install_dir}/embedded/opensearch"
@@ -46,7 +46,7 @@ new file mode 100644
 +relative_path "jdk-#{version}-jre"
 +
 +version "17.0.9+9" do
-+  source url: "https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.9%2B9/OpenJDK17U-jre_aarch64_linux_hotspot_17.0.9_9.tar.gz"
++  source path: ENV.fetch("CHEF_ARM_SERVER_OPEN_JRE_SOURCE_PATH")
 +end
 +
 +target_path = "#{install_dir}/embedded/open-jre"

@@ -114,6 +114,7 @@ fi
 [ "$PLATFORM" = "linux" ] || die "native package builds only run on Linux; use --dry-run on macOS"
 
 require_command bundle
+prepare_verified_runtime_sources "$work_root" "$metadata_path"
 
 log "installing upstream omnibus dependencies"
 (
