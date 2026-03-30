@@ -93,4 +93,4 @@ new file mode 100644
 +)
 +instance_eval(IO.read(upstream_definition), upstream_definition)
 +
-+whitelist_file %r{/lib/aarch64-linux-gnu/libpcre2-8\.so\.0} if RbConfig::CONFIG["host_cpu"] == "aarch64"
++whitelist_file %r{libpcre2-8\.so\..+} if RbConfig::CONFIG["host_cpu"] == "aarch64"
