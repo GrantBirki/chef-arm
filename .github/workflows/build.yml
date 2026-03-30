@@ -1,0 +1,29 @@
+---
+name: build
+
+"on":
+  pull_request:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: build
+    runs-on: ubuntu-24.04-arm
+
+    steps:
+      - name: checkout
+        uses: actions/checkout@v6
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: .ruby-version
+          bundler-cache: false
+
+      - name: bootstrap
+        run: script/bootstrap
+
+      - name: build
+        run: script/build --dry-run

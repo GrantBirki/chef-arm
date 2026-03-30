@@ -1,0 +1,32 @@
+---
+name: lint
+
+"on":
+  pull_request:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: checkout
+        uses: actions/checkout@v6
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: .ruby-version
+          bundler-cache: false
+
+      - name: bootstrap
+        run: script/bootstrap
+
+      - name: lint
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck yamllint
+          script/lint
