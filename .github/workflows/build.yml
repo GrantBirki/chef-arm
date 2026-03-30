@@ -10,6 +10,9 @@ name: build
 permissions:
   contents: read
 
+env:
+  BUILD_RUBY_VERSION: "3.1"
+
 jobs:
   build:
     name: build
@@ -22,7 +25,7 @@ jobs:
 
       - uses: ruby/setup-ruby@v1
         with:
-          ruby-version: .ruby-version
+          ruby-version: ${{ env.BUILD_RUBY_VERSION }}
           bundler-cache: false
 
       - name: deps

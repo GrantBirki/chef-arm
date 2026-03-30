@@ -24,6 +24,9 @@ concurrency:
   group: chef-arm-release
   cancel-in-progress: false
 
+env:
+  BUILD_RUBY_VERSION: "3.1"
+
 jobs:
   release:
     if: github.repository == 'GrantBirki/chef-arm'
@@ -47,7 +50,7 @@ jobs:
       - name: setup ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: .ruby-version
+          ruby-version: ${{ env.BUILD_RUBY_VERSION }}
           bundler-cache: false
 
       - name: install build dependencies

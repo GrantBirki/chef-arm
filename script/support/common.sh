@@ -87,6 +87,7 @@ instance_eval(IO.read(upstream_config), upstream_config)
 
 base_dir File.expand_path("local", __dir__)
 use_git_caching false
+use_s3_caching false
 use_internal_sources false
 append_timestamp false
 EOF
