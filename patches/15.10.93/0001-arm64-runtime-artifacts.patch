@@ -1,0 +1,96 @@
+diff --git a/omnibus/config/software/opensearch.rb b/omnibus/config/software/opensearch.rb
+index eef162f4e..af85660df 100644
+--- a/omnibus/config/software/opensearch.rb
++++ b/omnibus/config/software/opensearch.rb
+@@ -71,11 +71,7 @@ version "1.3.19" do
+ end
+ 
+ version "1.3.20" do
+-  source url: "#{ENV['ARTIFACTORY_REPO_URL']}/opensearch-2/#{name}-#{version}.tuxcare.1.0.2-linux-x64.tar.gz",
+-                  authorization: "X-JFrog-Art-Api:#{ENV['ARTIFACTORY_TOKEN']}",
+-                  sha256: "e2d728da0b108f7a2b5417b4e511f22ff6e36ba02012ac2f79fb71d5f7e23580"
+-internal_source url: "#{ENV["ARTIFACTORY_REPO_URL"]}/opensearch/#{name}-#{version}.tuxcare.1.0.2-linux-x64.tar.gz",
+-                authorization: "X-JFrog-Art-Api:#{ENV["ARTIFACTORY_TOKEN"]}"
++  source path: ENV.fetch("CHEF_ARM_OPENSEARCH_SOURCE_PATH")
+ end
+ 
+ target_path = "#{install_dir}/embedded/opensearch"
+diff --git a/omnibus/config/software/server-open-jre.rb b/omnibus/config/software/server-open-jre.rb
+new file mode 100644
+--- /dev/null
++++ b/omnibus/config/software/server-open-jre.rb
+@@ -0,0 +1,30 @@
++#
++# Copyright:: Chef Software, Inc.
++#
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#     http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++#
++
++name "server-open-jre"
++default_version "17.0.9+9"
++
++license "GPL-2.0 with Classpath Exception"
++license_file "NOTICE"
++skip_transitive_dependency_licensing true
++
++relative_path "jdk-#{version}-jre"
++
++version "17.0.9+9" do
++  source path: ENV.fetch("CHEF_ARM_SERVER_OPEN_JRE_SOURCE_PATH")
++end
++
++target_path = "#{install_dir}/embedded/open-jre"
++build do
++  mkdir "#{target_path}"
++  sync "#{project_dir}/", "#{target_path}"
++end
+diff --git a/omnibus/config/software/libuuid.rb b/omnibus/config/software/libuuid.rb
+--- a/omnibus/config/software/libuuid.rb
++++ b/omnibus/config/software/libuuid.rb
+@@ -20,6 +20,8 @@ default_version "2.21"
+ license "LGPL-2.1"
+ license_file "COPYING"
+ skip_transitive_dependency_licensing true
++
++dependency "config_guess"
+ 
+ source url: "https://www.kernel.org/pub/linux/utils/util-linux/v#{version}/util-linux-#{version}.tar.gz"
+ # We use the version in util-linux, and only build the libuuid subdirectory
+@@ -42,6 +44,8 @@ relative_path "util-linux-#{version}"
+ build do
+   env = with_standard_compiler_flags(with_embedded_path)
+ 
++  update_config_guess(target: "config")
++
+   command "./configure --prefix=#{install_dir}/embedded", env: env
+ 
+   make "-j #{workers}", env: env, cwd: "#{project_dir}/libuuid"
+diff --git a/omnibus/config/software/openresty.rb b/omnibus/config/software/openresty.rb
+new file mode 100644
+--- /dev/null
++++ b/omnibus/config/software/openresty.rb
+@@ -0,0 +1,12 @@
++#
++# Load the upstream omnibus-software definition and apply the arm64-specific
++# health-check whitelist in a local override instead of forking the full file.
++#
++
++require "rbconfig"
++
++upstream_definition = File.join(
++  Gem.loaded_specs.fetch("omnibus-software").full_gem_path,
++  "config/software/openresty.rb"
++)
++instance_eval(IO.read(upstream_definition), upstream_definition)
++
++whitelist_file %r{libpcre2-8\.so\..+} if RbConfig::CONFIG["host_cpu"] == "aarch64"

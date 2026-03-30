@@ -1,0 +1,113 @@
+#! /usr/bin/env bash
+
+set -euo pipefail
+
+# shellcheck source=script/env
+source script/env "$@"
+# shellcheck source=script/support/common.sh
+source script/support/common.sh
+
+usage() {
+  cat <<'EOF'
+usage: script/release [<upstream_ref>] [--iteration <n>] [--artifact <path>] [--publish]
+
+Creates release metadata and, when --publish is set, uploads assets to a GitHub Release.
+EOF
+}
+
+upstream_ref=""
+arm_iteration="1"
+artifact_path=""
+publish="0"
+
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --iteration)
+      shift
+      arm_iteration="${1:-}"
+      ;;
+    --artifact)
+      shift
+      artifact_path="${1:-}"
+      ;;
+    --publish)
+      publish="1"
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      if [ -z "$upstream_ref" ]; then
+        upstream_ref="$1"
+      else
+        die "unexpected argument: $1"
+      fi
+      ;;
+  esac
+  shift
+done
+
+[ -n "$upstream_ref" ] || upstream_ref="$(script/metadata default-ref)"
+
+if [ -z "$artifact_path" ]; then
+  artifact_path="$(script/build "$upstream_ref" --iteration "$arm_iteration")"
+fi
+
+[ -f "$artifact_path" ] || die "release artifact not found: $artifact_path"
+
+if command -v dpkg-deb >/dev/null 2>&1; then
+  upstream_version="$(dpkg-deb -f "$artifact_path" Version | sed 's/-.*$//')"
+else
+  upstream_version="$(basename "$artifact_path" | sed -E 's/^[^_]+_([^_]+)-[0-9]+_arm64\.deb$/\1/')"
+fi
+release_tag="$(script/metadata release-tag "$upstream_version" "$arm_iteration")"
+artifact_dir="$DIR/pkg/$release_tag"
+notes_path="$artifact_dir/RELEASE_NOTES.md"
+checksums_path="$artifact_dir/SHA256SUMS"
+sbom_path="${CHEF_ARM_SBOM_PATH:-$artifact_dir/sbom.spdx.json}"
+
+mkdir -p "$artifact_dir"
+
+shasum -a 256 "$artifact_path" | sed "s|$artifact_path|$(basename "$artifact_path")|" > "$checksums_path"
+
+cat > "$notes_path" <<EOF
+# ${release_tag}
+
+- Upstream repository: $(script/metadata repository)
+- Upstream ref: ${upstream_ref}
+- Upstream version: ${upstream_version}
+- ARM iteration: ${arm_iteration}
+- Patch manifest: config/patches.yml
+
+## Notes
+
+- Experimental community build for Ubuntu Server 24.04 arm64
+- Not a vendor-supported Progress Chef package
+- Verify the attached \`SHA256SUMS\` file and GitHub artifact attestation before install
+EOF
+
+if [ "$publish" = "0" ]; then
+  echo "$artifact_dir"
+  exit 0
+fi
+
+require_command gh
+
+assets=("$artifact_path" "$checksums_path")
+
+if [ -f "$sbom_path" ]; then
+  assets+=("$sbom_path")
+else
+  warn "sbom not found at $sbom_path; release will continue without it"
+fi
+
+if gh release view "$release_tag" >/dev/null 2>&1; then
+  gh release edit "$release_tag" --notes-file "$notes_path" >/dev/null
+else
+  gh release create "$release_tag" --title "$release_tag" --notes-file "$notes_path"
+fi
+
+gh release upload "$release_tag" "${assets[@]}" --clobber
+
+echo "$artifact_dir"

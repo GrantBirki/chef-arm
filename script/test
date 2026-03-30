@@ -1,0 +1,79 @@
+#! /usr/bin/env bash
+
+set -euo pipefail
+
+# shellcheck source=script/env
+source script/env "$@"
+# shellcheck source=script/support/common.sh
+source script/support/common.sh
+
+package_path="${1:-}"
+
+if [ -z "$package_path" ]; then
+  echo -e "\n${BLUE}Running tests: $(date "+%H:%M:%S")${OFF}\n"
+
+  bundle exec rspec spec && rspec_exit=$? || rspec_exit=$?
+
+  total_coverage=$(cat "$DIR/coverage/total-coverage.txt")
+
+  if grep -q "100.0%" "$DIR/coverage/total-coverage.txt"; then
+    cov_exit=0
+    echo -e "\n${GREEN}Total Coverage: $total_coverage${OFF}"
+  else
+    cov_exit=1
+    echo -e "\n${RED}Total Coverage: $total_coverage${OFF}"
+  fi
+
+  echo ""
+  echo "---------------------------------------"
+  echo "Summary Results"
+  echo "---------------------------------------"
+  echo ""
+
+  if [ "$rspec_exit" -eq 0 ]; then
+    echo -e "${GREEN}rspec:    exitcode=${rspec_exit}${OFF}"
+  else
+    echo -e "${RED}rspec:    exitcode=${rspec_exit}${OFF}"
+  fi
+
+  if [ "$cov_exit" -eq 0 ]; then
+    echo -e "${GREEN}coverage: exitcode=${cov_exit}${OFF}"
+  else
+    echo -e "${RED}coverage: exitcode=${cov_exit}${OFF}"
+  fi
+
+  [ "$rspec_exit" -gt 0 ] && exit 1
+  [ "$cov_exit" -gt 0 ] && exit 1
+
+  exit 0
+fi
+
+[ "$PLATFORM" = "linux" ] || die "package smoke tests only run on Linux"
+[ -f "$package_path" ] || die "package not found: $package_path"
+
+require_command curl
+require_command sudo
+
+chef_server_ctl="/opt/opscode/bin/chef-server-ctl"
+
+log "installing package $package_path"
+sudo dpkg -i "$package_path" || true
+sudo apt-get update
+sudo apt-get install -f -y
+sudo dpkg -i "$package_path"
+
+if ! command -v chef-server-ctl >/dev/null 2>&1 && [ -x "$chef_server_ctl" ]; then
+  PATH="/opt/opscode/bin:$PATH"
+fi
+
+require_command chef-server-ctl
+
+log "running chef-server-ctl reconfigure"
+sudo timeout 90m chef-server-ctl reconfigure
+
+log "checking service status"
+sudo chef-server-ctl status
+
+log "checking API health endpoint"
+curl -fsS http://localhost:8000/_status > /tmp/chef-arm-status.json
+cat /tmp/chef-arm-status.json

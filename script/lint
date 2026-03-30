@@ -1,0 +1,23 @@
+#! /usr/bin/env bash
+
+set -e
+
+# shellcheck source=script/env
+source script/env "$@"
+
+echo -e "\n${BLUE}Running Rubocop: $(date "+%H:%M:%S")${OFF}\n"
+bundle exec rubocop -c .rubocop.yml
+
+if command -v shellcheck >/dev/null 2>&1; then
+  echo -e "\n${BLUE}Running ShellCheck${OFF}\n"
+  find script -type f ! -name "*.rb" ! -name "metadata" -print0 | xargs -0 shellcheck
+else
+  echo -e "\n${PURPLE}Skipping shellcheck; command not found.${OFF}\n"
+fi
+
+if command -v yamllint >/dev/null 2>&1; then
+  echo -e "\n${BLUE}Running yamllint${OFF}\n"
+  yamllint .github/workflows config
+else
+  echo -e "\n${PURPLE}Skipping yamllint; command not found.${OFF}\n"
+fi

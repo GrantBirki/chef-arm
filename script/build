@@ -1,0 +1,160 @@
+#! /usr/bin/env bash
+
+set -euo pipefail
+
+# shellcheck source=script/env
+source script/env "$@"
+# shellcheck source=script/support/common.sh
+source script/support/common.sh
+
+usage() {
+  cat <<'EOF'
+usage: script/build [<upstream_ref>] [--iteration <n>] [--dry-run]
+
+Builds an Ubuntu 24.04 arm64 chef-server package from upstream source.
+Without <upstream_ref>, the default from config/upstream.yml is used.
+EOF
+}
+
+upstream_ref=""
+arm_iteration="1"
+dry_run="0"
+
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --iteration)
+      shift
+      arm_iteration="${1:-}"
+      ;;
+    --dry-run)
+      dry_run="1"
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      if [ -z "$upstream_ref" ]; then
+        upstream_ref="$1"
+      else
+        die "unexpected argument: $1"
+      fi
+      ;;
+  esac
+  shift
+done
+
+[ -n "$upstream_ref" ] || upstream_ref="$(script/metadata default-ref)"
+[ -n "$arm_iteration" ] || die "build iteration cannot be empty"
+
+repository_url="$(script/metadata repository)"
+work_root="${CHEF_ARM_WORK_ROOT:-$DIR/tmp/build}"
+checkout_dir="$work_root/chef-server"
+
+require_command git
+require_command ruby
+
+mkdir -p "$work_root"
+
+log "cloning upstream ref $upstream_ref"
+clone_upstream_repo "$repository_url" "$upstream_ref" "$checkout_dir"
+
+[ -f "$checkout_dir/VERSION" ] || die "upstream VERSION file not found"
+upstream_version="$(tr -d '\n' < "$checkout_dir/VERSION" | xargs)"
+release_tag="$(script/metadata release-tag "$upstream_version" "$arm_iteration")"
+package_filename="$(script/metadata package-filename "$upstream_version" "$arm_iteration")"
+artifact_dir="$DIR/pkg/$release_tag"
+metadata_path="$artifact_dir/build-metadata.yml"
+
+mkdir -p "$artifact_dir"
+
+absolute_patches=()
+patch_series=()
+
+while IFS= read -r patch_path; do
+  [ -n "$patch_path" ] || continue
+  patch_series+=("$patch_path")
+done < <(script/metadata resolve-patches "$upstream_ref" "$upstream_version")
+
+if [ "${#patch_series[@]}" -gt 0 ]; then
+  for patch_path in "${patch_series[@]}"; do
+    absolute_patches+=("$DIR/$patch_path")
+  done
+fi
+
+if [ "${#absolute_patches[@]}" -gt 0 ]; then
+  apply_patch_series "$checkout_dir" "${absolute_patches[@]}"
+fi
+render_omnibus_override "$checkout_dir" "$arm_iteration"
+omnibus_config_path="$(render_omnibus_config "$checkout_dir")"
+
+cat > "$metadata_path" <<EOF
+---
+artifact_dir: $artifact_dir
+arm_iteration: $arm_iteration
+package_filename: $package_filename
+patch_count: ${#absolute_patches[@]}
+release_tag: $release_tag
+upstream_ref: $upstream_ref
+upstream_repository: $repository_url
+upstream_version: $upstream_version
+EOF
+
+set_github_output "artifact_dir" "$artifact_dir"
+set_github_output "release_tag" "$release_tag"
+set_github_output "upstream_ref" "$upstream_ref"
+set_github_output "upstream_version" "$upstream_version"
+
+if [ "$dry_run" = "1" ]; then
+  log "dry-run complete"
+  echo "$artifact_dir"
+  exit 0
+fi
+
+[ "$PLATFORM" = "linux" ] || die "native package builds only run on Linux; use --dry-run on macOS"
+
+require_command bundle
+prepare_verified_runtime_sources "$work_root" "$metadata_path"
+
+log "installing upstream omnibus dependencies"
+(
+  cd "$checkout_dir/omnibus"
+  local_platform="$(ruby -e 'require "rubygems"; print Gem::Platform.local.to_s')"
+  bundle config set --local path "$work_root/upstream-gems"
+  bundle config set --local without "test"
+  ruby - "$PWD/Gemfile.lock" "$local_platform" <<'RUBY'
+lockfile_path = ARGV.fetch(0)
+platform = ARGV.fetch(1)
+lines = File.readlines(lockfile_path)
+
+exit 0 if lines.include?("  #{platform}\n")
+
+platforms_index = lines.index("PLATFORMS\n")
+dependencies_index = lines.index("DEPENDENCIES\n")
+
+raise "PLATFORMS section not found in #{lockfile_path}" unless platforms_index
+raise "DEPENDENCIES section not found in #{lockfile_path}" unless dependencies_index
+
+platforms = lines[(platforms_index + 1)...dependencies_index]
+  .select { |line| line.start_with?("  ") }
+  .map(&:strip)
+
+platforms << platform
+platforms.uniq!
+platforms.sort!
+
+updated_lines = lines[0..platforms_index]
+updated_lines.concat(platforms.map { |entry| "  #{entry}\n" })
+updated_lines.concat(lines[dependencies_index..])
+
+File.write(lockfile_path, updated_lines.join)
+RUBY
+  bundle config set --local frozen "true"
+  bundle install
+  bundle exec omnibus build chef-server --config "$omnibus_config_path"
+)
+
+package_path="$(copy_package_artifact "$checkout_dir" "$artifact_dir" "$package_filename")"
+
+set_github_output "package_path" "$package_path"
+echo "$package_path"
