@@ -120,7 +120,33 @@ log "installing upstream omnibus dependencies"
   local_platform="$(ruby -e 'require "rubygems"; print Gem::Platform.local.to_s')"
   bundle config set --local path "$work_root/upstream-gems"
   bundle config set --local without "test"
-  bundle lock --add-platform "$local_platform"
+  ruby - "$PWD/Gemfile.lock" "$local_platform" <<'RUBY'
+lockfile_path = ARGV.fetch(0)
+platform = ARGV.fetch(1)
+lines = File.readlines(lockfile_path)
+
+exit 0 if lines.include?("  #{platform}\n")
+
+platforms_index = lines.index("PLATFORMS\n")
+dependencies_index = lines.index("DEPENDENCIES\n")
+
+raise "PLATFORMS section not found in #{lockfile_path}" unless platforms_index
+raise "DEPENDENCIES section not found in #{lockfile_path}" unless dependencies_index
+
+platforms = lines[(platforms_index + 1)...dependencies_index]
+  .select { |line| line.start_with?("  ") }
+  .map(&:strip)
+
+platforms << platform
+platforms.uniq!
+platforms.sort!
+
+updated_lines = lines[0..platforms_index]
+updated_lines.concat(platforms.map { |entry| "  #{entry}\n" })
+updated_lines.concat(lines[dependencies_index..])
+
+File.write(lockfile_path, updated_lines.join)
+RUBY
   bundle config set --local frozen "true"
   bundle install
   bundle exec omnibus build chef-server
