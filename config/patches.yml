@@ -3,4 +3,5 @@ patches:
   common: []
   constraints: []
   refs:
-    15.10.93: []
+    15.10.93:
+      - patches/15.10.93/0001-arm64-runtime-artifacts.patch
